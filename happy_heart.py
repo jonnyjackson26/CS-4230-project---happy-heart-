@@ -8,10 +8,16 @@ Input can come from a file (command-line argument) or keyboard (stdin).
 
 import sys
 from collections import deque
-
+from enum import Enum
 
 # helper functions
 # -----------------------------
+
+class Alarm(str, Enum):
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGHEST = "Highest"
+    ERROR = "Low (Error)"
 
 def format_time(seconds):
     seconds = seconds % 3600
@@ -64,37 +70,37 @@ def parse_line(line):
 
 def pulse_alarm(pulse):
     if pulse == 'invalid' or pulse < 0 or pulse > 260:
-        return ('Low', 'Invalid pulse reading')
+        return (Alarm.ERROR, 'Invalid pulse reading')
     if pulse == 0 or pulse < 20:
-        return ('Highest', f'Pulse critically low ({pulse})')
+        return (Alarm.HIGHEST, f'Pulse critically low ({pulse})')
     if pulse < 40:
-        return ('Medium', f'Pulse very low ({pulse})')
+        return (Alarm.MEDIUM, f'Pulse very low ({pulse})')
     if pulse > 210:
-        return ('Low', 'Impossible pulse reading')
+        return (Alarm.LOW, 'Impossible pulse reading')
     if pulse > 170:
-        return ('Highest', f'Pulse dangerously high ({pulse})')
+        return (Alarm.HIGHEST, f'Pulse dangerously high ({pulse})')
     if pulse > 130:
-        return ('Medium', f'Pulse too high ({pulse})')
+        return (Alarm.MEDIUM, f'Pulse too high ({pulse})')
     if pulse > 110:
-        return ('Low', f'Pulse elevated ({pulse})')
+        return (Alarm.LOW, f'Pulse elevated ({pulse})')
     return None
 
 
 def oxygen_alarm(avg, missing_count, invalid):
     if invalid:
-        return ('Low', 'Invalid oxygen reading')
+        return (Alarm.ERROR, 'Invalid oxygen reading')
     if missing_count >= 3:
-        return ('Low', 'Oxygen sensor missing')
+        return (Alarm.LOW, 'Oxygen sensor missing')
     if avg is None:
         return None
     if avg <= 0 or avg >= 100:
-        return ('Low', 'Impossible oxygen level')
+        return (Alarm.LOW, 'Impossible oxygen level')
     if avg < 50:
-        return ('Highest', f'Oxygen critically low ({avg:.1f}%)')
+        return (Alarm.HIGHEST, f'Oxygen critically low ({avg:.1f}%)')
     if avg < 80:
-        return ('Medium', f'Oxygen dangerously low ({avg:.1f}%)')
+        return (Alarm.MEDIUM, f'Oxygen dangerously low ({avg:.1f}%)')
     if avg < 85:
-        return ('Low', f'Oxygen slightly low ({avg:.1f}%)')
+        return (Alarm.LOW, f'Oxygen slightly low ({avg:.1f}%)')
     return None
 
 
@@ -102,21 +108,21 @@ def bp_alarm(bp, active_alarm):
     if bp is None:
         return active_alarm
     if bp == 'invalid':
-        return ('Low', 'Invalid blood pressure reading')
+        return (Alarm.ERROR, 'Invalid blood pressure reading')
 
     systolic, diastolic = bp
     if systolic < 0 or diastolic < 0 or systolic > 260 or diastolic > 150:
-        return ('Low', 'Impossible blood pressure reading')
+        return (Alarm.ERROR, 'Invalid blood pressure reading')
     if systolic > 230 or diastolic > 150:
-        return ('Low', 'Impossible blood pressure reading')
+        return (Alarm.ERROR, 'Invalid blood pressure reading')
     if systolic < 50 or diastolic < 33:
-        return ('Highest', f'Blood pressure critically low ({systolic}/{diastolic})')
+        return (Alarm.HIGHEST, f'Blood pressure critically low ({systolic}/{diastolic})')
     if systolic < 70 or diastolic < 40:
-        return ('Medium', f'Blood pressure too low ({systolic}/{diastolic})')
+        return (Alarm.MEDIUM, f'Blood pressure too low ({systolic}/{diastolic})')
     if systolic > 200 or diastolic > 120:
-        return ('Medium', f'Blood pressure dangerously high ({systolic}/{diastolic})')
+        return (Alarm.MEDIUM, f'Blood pressure dangerously high ({systolic}/{diastolic})')
     if systolic > 150 or diastolic > 90:
-        return ('Low', f'Blood pressure elevated ({systolic}/{diastolic})')
+        return (Alarm.LOW, f'Blood pressure elevated ({systolic}/{diastolic})')
     return None
 
 # Main monitoring loop
@@ -176,11 +182,11 @@ def main():
             alarms.append(('Blood Pressure', bp_active_alarm))
 
         # Choose highest alarm
-        priority = {'Highest': 3, 'Medium': 2, 'Low': 1}
+        priority = {Alarm.ERROR:4, Alarm.HIGHEST: 3, Alarm.MEDIUM: 2, Alarm.LOW: 1}
         precedence = ['Pulse', 'Oxygen', 'Blood Pressure']
 
         chosen = None
-        for level in ['Highest', 'Medium', 'Low']:
+        for level in [Alarm.ERROR, Alarm.HIGHEST, Alarm.MEDIUM, Alarm.LOW]:
             for src in precedence:
                 for a in alarms:
                     if a[0] == src and a[1][0] == level:
